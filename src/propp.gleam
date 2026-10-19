@@ -2,8 +2,15 @@ import gleam/int
 import gleam/list
 import gleam/result
 
-pub type Choices =
-  List(Int)
+pub opaque type Choices {
+  Choices(source: Source, recorded: List(Int))
+  // reversed
+}
+
+type Source {
+  Random
+  Replay(remaining: List(Int))
+}
 
 pub type Generator(a) {
   Generator(run: fn(Choices) -> Result(#(a, Choices), Rejected))
@@ -13,15 +20,20 @@ pub type Rejected {
   Rejected(reason: String)
 }
 
-fn random_choices(n: Int) -> Choices {
-  list.repeat(Nil, n) |> list.map(fn(_) { int.random(1_000_000) })
-}
-
 fn draw(max: Int) -> Generator(Int) {
   Generator(fn(choices) {
-    case choices {
-      [first, ..rest] -> Ok(#(first % max, rest))
-      [] -> Error(Rejected("No more random stuff"))
+    case choices.source {
+      Random -> {
+        let value = int.random(max + 1)
+        Ok(#(value, Choices(..choices, recorded: [value, ..choices.recorded])))
+      }
+      Replay([choice, ..]) if choice > max -> Error(Rejected("choice > max"))
+      Replay([choice, ..rest]) ->
+        Ok(#(
+          choice,
+          Choices(Replay(rest), recorded: [choice, ..choices.recorded]),
+        ))
+      Replay([]) -> Error(Rejected("No more choices"))
     }
   })
 }
@@ -58,15 +70,11 @@ fn check1(
   prop: Property(a),
 ) -> Example(a) {
   case gen.run(choices) {
-    Ok(#(a, rest)) ->
+    Ok(#(a, Choices(_, recorded))) ->
       case prop(a) {
         True -> Holds
         _ -> {
-          // assumes we only ever take items from the front of choices
-          // and return a proper suffix
-          let consumed =
-            list.take(choices, list.length(choices) - list.length(rest))
-          Counterexample(a, consumed)
+          Counterexample(a, list.reverse(recorded))
         }
       }
     Error(r) -> Discarded(r)
@@ -82,8 +90,7 @@ fn check_loop(
   case times_left {
     0 -> Passed(passed)
     n -> {
-      let choices = random_choices(10)
-      case check1(choices, gen, prop) {
+      case check1(Choices(Random, []), gen, prop) {
         Holds -> check_loop(gen, prop, n - 1, passed + 1)
         Counterexample(v, consumed) -> Disproven(v, passed, consumed)
         Discarded(r) -> GaveUp(r)
