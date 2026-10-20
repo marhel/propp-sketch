@@ -124,10 +124,19 @@ fn shrink(
   }
 }
 
+fn for_all(gen: Generator(a), prop: Property(a)) {
+  check_loop(gen, prop, 20, 0)
+}
+
 fn is_three_digits(v) {
   v < 1000
 }
 
+fn check_three_digits() {
+  use number <- for_all(int_range(100, 1100))
+  is_three_digits(number)
+}
+
 pub fn main() {
-  echo check_loop(int_range(100, 1200), is_three_digits, 20, 0)
+  echo check_three_digits()
 }
