@@ -45,6 +45,23 @@ fn map(ga: Generator(a), mk_b: fn(a) -> b) -> Generator(b) {
   })
 }
 
+fn flat_map(ga: Generator(a), mk_gb: fn(a) -> Generator(b)) -> Generator(b) {
+  Generator(fn(choices) {
+    use #(a, rest) <- result.try(ga.run(choices))
+    mk_gb(a).run(rest)
+  })
+}
+
+fn map2(
+  ga: Generator(a),
+  gb: Generator(b),
+  mk_c: fn(a, b) -> c,
+) -> Generator(c) {
+  use a <- flat_map(ga)
+  use b <- map(gb)
+  mk_c(a, b)
+}
+
 fn int_range(min: Int, max: Int) -> Generator(Int) {
   map(draw({ max - min }), int.add(_, min))
 }
@@ -137,6 +154,70 @@ fn check_three_digits() {
   is_three_digits(number)
 }
 
+// A bar. The bar is the code under test, and it has a bug: it thinks
+// 16 is old enough to drink alcohol
+
+pub type Drink {
+  Water
+  Beer
+  Wine
+  GT
+}
+
+pub type Person {
+  Person(age: Int)
+}
+
+pub type DrinkOrder {
+  DrinkOrder(person: Person, beverage: Drink)
+}
+
+fn is_alcoholic(drink: Drink) -> Bool {
+  case drink {
+    Water -> False
+    Beer | Wine | GT -> True
+  }
+}
+
+fn serve(person: Person, ordered: Drink) -> Drink {
+  case is_alcoholic(ordered), person.age >= 16 {
+    True, False -> Water
+    _, _ -> ordered
+  }
+}
+
+// Smaller choice, simpler value: Water is the simplest drink
+fn drinks() -> Generator(Drink) {
+  map(draw(3), fn(choice) {
+    case choice {
+      0 -> Water
+      1 -> Beer
+      2 -> Wine
+      _ -> GT
+    }
+  })
+}
+
+// Age shrinks towards 10.
+fn people() -> Generator(Person) {
+  map(int_range(10, 30), Person)
+}
+
+fn drink_orders() -> Generator(DrinkOrder) {
+  map2(people(), drinks(), DrinkOrder)
+}
+
+fn only_adults_are_served_alcohol(drink_order: DrinkOrder) -> Bool {
+  let served = serve(drink_order.person, drink_order.beverage)
+  !is_alcoholic(served) || drink_order.person.age >= 20
+}
+
+fn check_bar() {
+  use drink_order <- for_all(drink_orders())
+  only_adults_are_served_alcohol(drink_order)
+}
+
 pub fn main() {
   echo check_three_digits()
+  echo check_bar()
 }
