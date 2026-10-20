@@ -92,8 +92,33 @@ fn check_loop(
     n -> {
       case check1(Choices(Random, []), gen, prop) {
         Holds -> check_loop(gen, prop, n - 1, passed + 1)
-        Counterexample(v, consumed) -> Disproven(v, passed, consumed)
+        Counterexample(v, consumed) -> {
+          let #(s, smaller) = shrink(v, gen, prop, consumed, 20)
+          Disproven(s, passed, smaller)
+        }
         Discarded(r) -> GaveUp(r)
+      }
+    }
+  }
+}
+
+fn shrink(
+  current,
+  gen,
+  prop,
+  choices: List(Int),
+  budget: Int,
+) -> #(a, List(Int)) {
+  case budget {
+    0 -> #(current, choices)
+    _ -> {
+      // this is a nondeterministic way to find smaller candidates, YOLO
+      let candidate = list.map(choices, fn(v) { int.random(v + 1) })
+      case check1(Choices(Replay(candidate), []), gen, prop) {
+        Holds -> shrink(current, gen, prop, choices, budget - 1)
+        Counterexample(s, consumed) ->
+          shrink(s, gen, prop, consumed, budget - 1)
+        Discarded(_) -> #(current, choices)
       }
     }
   }
