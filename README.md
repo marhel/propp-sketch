@@ -1,11 +1,12 @@
 # propp-sketch
 
-A throwaway, hand-written sketch of property-based testing (PBT) in Gleam. It was
-written to make a design discussion concrete: how PBT could be added to Markus Eliasson's
+A throwaway, hand-written sketch of property-based testing (PBT) in [Gleam](https://gleam.run). It was
+written to make a design discussion concrete: how PBT could be added to [Markus Eliasson](https://github.com/eliasson)'s
 [garanti](https://github.com/eliasson/garanti), a Gleam test framework. It is not
 a library, and not a proposal for garanti's code.
 
-The sketch uses *choice sequences*, the approach of Hypothesis and minithesis.
+The sketch uses *choice sequences*, the approach of [Hypothesis](https://hypothesis.works)
+and [minithesis](https://github.com/DRMacIver/minithesis).
 Generators never call a random function. Instead, they read integer "choices" from
 a list. To shrink a failing example, the sketch edits that list and runs the same
 generator on it again. Every generator therefore gets shrinking for free,
@@ -39,7 +40,13 @@ commit by commit shows how the sketch started simple and grew:
 
 ## Running it
 
+You need [Gleam installed](https://gleam.run/install/),
+plus Erlang for the BEAM target or Node.js for the JavaScript target (the
+install page covers both).
+
 ```sh
+git clone https://github.com/marhel/propp-sketch.git
+cd propp-sketch
 gleam run                       # BEAM
 gleam run --target javascript   # JS
 ```
@@ -47,7 +54,7 @@ gleam run --target javascript   # JS
 `main` checks two properties and prints the outcome:
 
 - `is_three_digits` on integers from 100 to 1100 (yes, the property is intentionally flawed)
-- A automated bar (the kind where you drink) with a 'bug' inserted; That 16 is old enough for alcohol, checked against the property "a person who
+- An automated bar (the kind where you drink) with a 'bug' inserted; That 16 is old enough for alcohol, checked against the property "a person who
   is served alcohol is at least 20".
 
 Both properties fail on purpose. The output shows the shrunk counterexample, the
